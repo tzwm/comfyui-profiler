@@ -27,14 +27,17 @@ function drawText(ctx, text) {
 app.registerExtension({
   name: "ComfyUI.Profiler",
   async setup() {
-    const nodes = app.graph._nodes;
     api.addEventListener("profiler", (event) => {
       const data = event.detail;
-      const node = nodes.find((n) => n.id.toString() == data.node);
+      const node = app.graph._nodes.find((n) => n.id.toString() == data.node);
       if (node) {
         node.profilingTime = `${data.current_time.toFixed(2)}s`;
       }
     });
+
+  },
+  async afterConfigureGraph() {
+    const nodes = app.graph._nodes;
     api.addEventListener("execution_start", (_) => {
       nodes.forEach(n => n.profilingTime = '');
     });
@@ -46,5 +49,5 @@ app.registerExtension({
         return ret;
       };
     });
-	},
+  }
 });
