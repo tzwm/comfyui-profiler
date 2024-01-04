@@ -1,11 +1,18 @@
 import time
 import execution
+import asyncio
+
+import server
 
 exist_recursive_execute = execution.recursive_execute
 exist_PromptExecutor_execute = execution.PromptExecutor.execute
 
 profiler_data = {}
 profiler_outputs = []
+
+async def send_message(data):
+    s = server.PromptServer.instance
+    await s.send_json('profiler', data)
 
 def get_input_unique_ids(inputs):
     ret = []
@@ -19,7 +26,7 @@ def get_input_unique_ids(inputs):
 
 def get_total_inputs_time(current_item, prompt, calculated_inputs):
     input_unique_ids = get_input_unique_ids(prompt[current_item]['inputs'])
-    total_time = profiler_data['nodes'][current_item]
+    total_time = profiler_data['nodes'].get(current_item, 0)
     calculated_nodes = calculated_inputs + [current_item]
     for id in input_unique_ids:
         if id in calculated_inputs:
@@ -36,6 +43,7 @@ def new_recursive_execute(server, prompt, outputs, current_item, extra_data, exe
     if not profiler_data.get('prompt_id') or profiler_data.get('prompt_id') != prompt_id:
         profiler_data['prompt_id'] = prompt_id
         profiler_data['nodes'] = {}
+        profiler_outputs.clear()
 
     inputs = prompt[current_item]['inputs']
     input_unique_ids = get_input_unique_ids(inputs)
@@ -49,6 +57,12 @@ def new_recursive_execute(server, prompt, outputs, current_item, extra_data, exe
     this_time_nodes_time, _ = get_total_inputs_time(current_item, prompt, executed_inputs)
     profiler_data['nodes'][current_item] = end_time - start_time - this_time_nodes_time
     total_inputs_time, _ = get_total_inputs_time(current_item, prompt, [])
+
+    asyncio.run(send_message({
+        'node': current_item,
+        'current_time': profiler_data['nodes'][current_item],
+        'total_inputs_time': total_inputs_time
+    }))
 
     inputs_str = ''
     if len(input_unique_ids) > 0:
@@ -64,11 +78,12 @@ def new_recursive_execute(server, prompt, outputs, current_item, extra_data, exe
 
 
 def new_prompt_executor_execute(self, prompt, prompt_id, extra_data={}, execute_outputs=[]):
-    exist_PromptExecutor_execute(self, prompt, prompt_id, extra_data=extra_data, execute_outputs=execute_outputs)
+    ret = exist_PromptExecutor_execute(self, prompt, prompt_id, extra_data=extra_data, execute_outputs=execute_outputs)
     print('\n'.join(profiler_outputs))
+    return ret
 
 execution.recursive_execute = new_recursive_execute
 execution.PromptExecutor.execute = new_prompt_executor_execute
 
-WEB_DIRECTORY = ""
+WEB_DIRECTORY = "."
 NODE_CLASS_MAPPINGS = {}
