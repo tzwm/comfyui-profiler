@@ -26,21 +26,25 @@ function drawText(ctx, text) {
 
 app.registerExtension({
   name: "ComfyUI.Profiler",
-  async loadedGraphNode(node, app) {
-    const orig = node.onDrawForeground;
-    node.onDrawForeground = function (ctx) {
-      const ret = orig(ctx, arguments);
-      drawText(ctx, node.profilingTime || '');
-      api.addEventListener("profiler", (event) => {
-        const data = event.detail;
-        if (data.node != node.id.toString()) {
-          return;
-        }
-
+  async setup() {
+    const nodes = app.graph._nodes;
+    api.addEventListener("profiler", (event) => {
+      const data = event.detail;
+      const node = nodes.find((n) => n.id.toString() == data.node);
+      if (node) {
         node.profilingTime = `${data.current_time.toFixed(2)}s`;
-      });
-
-      return ret;
-    };
+      }
+    });
+    api.addEventListener("execution_start", (_) => {
+      nodes.forEach(n => n.profilingTime = '');
+    });
+    nodes.forEach(node => {
+      const orig = node.onDrawForeground;
+      node.onDrawForeground = function (ctx) {
+        const ret = orig(ctx, arguments);
+        drawText(ctx, node.profilingTime || '');
+        return ret;
+      };
+    });
 	},
 });
