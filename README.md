@@ -2,8 +2,9 @@
 
 Calculate the execution time of all nodes.
 
-## Preview
+Welcome to use my another ComfyUI extension: [ComfyUI Browser](https://github.com/tzwm/comfyui-browser).
 
+## Preview
 
 https://github.com/tzwm/comfyui-profiler/assets/828837/9e3f4fd6-6e43-429c-aaf5-c11631f69ad2
 
