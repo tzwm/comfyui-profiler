@@ -1,8 +1,20 @@
-import time
-import execution
-import asyncio
 
+import os
+import time
+import asyncio
+from typing import Any
+
+import execution
 import server
+
+_LOG_TIME = True
+try: _LOG_TIME = os.getenv("COMFYUI_PROFILER_LOG_TIME", "true").lower() in ['true', '1']
+except: pass
+print(_LOG_TIME)
+
+_PRECISION = 4
+try: _PRECISION = int(os.getenv("COMFYUI_PROFILER_PRECISION", _PRECISION))
+except: pass
 
 exist_recursive_execute = execution.recursive_execute
 exist_PromptExecutor_execute = execution.PromptExecutor.execute
@@ -10,11 +22,11 @@ exist_PromptExecutor_execute = execution.PromptExecutor.execute
 profiler_data = {}
 profiler_outputs = []
 
-async def send_message(data):
+async def send_message(data) -> None:
     s = server.PromptServer.instance
     await s.send_json('profiler', data)
 
-def get_input_unique_ids(inputs):
+def get_input_unique_ids(inputs) -> list:
     ret = []
     for key in inputs:
         input_data = inputs[key]
@@ -24,7 +36,7 @@ def get_input_unique_ids(inputs):
     return ret
 
 
-def get_total_inputs_time(current_item, prompt, calculated_inputs):
+def get_total_inputs_time(current_item, prompt, calculated_inputs) -> tuple:
     input_unique_ids = get_input_unique_ids(prompt[current_item]['inputs'])
     total_time = profiler_data['nodes'].get(current_item, 0)
     calculated_nodes = calculated_inputs + [current_item]
@@ -39,7 +51,7 @@ def get_total_inputs_time(current_item, prompt, calculated_inputs):
     return total_time, calculated_nodes
 
 
-def new_recursive_execute(server, prompt, outputs, current_item, extra_data, executed, prompt_id, outputs_ui, object_storage):
+def new_recursive_execute(server, prompt, outputs, current_item, extra_data, executed, prompt_id, outputs_ui, object_storage) -> Any:
     if not profiler_data.get('prompt_id') or profiler_data.get('prompt_id') != prompt_id:
         profiler_data['prompt_id'] = prompt_id
         profiler_data['nodes'] = {}
@@ -72,14 +84,15 @@ def new_recursive_execute(server, prompt, outputs, current_item, extra_data, exe
         inputs_str = inputs_str[:-1] + ')'
 
     profiler_outputs.append(f"[profiler] #{current_item} {prompt[current_item]['class_type']}: \
-{round(profiler_data['nodes'][current_item], 4)} seconds, total {round(total_inputs_time, 4)} seconds{inputs_str}")
+{round(profiler_data['nodes'][current_item], _PRECISION)} seconds, total {round(total_inputs_time, _PRECISION)} seconds{inputs_str}")
 
     return ret
 
 
-def new_prompt_executor_execute(self, prompt, prompt_id, extra_data={}, execute_outputs=[]):
+def new_prompt_executor_execute(self, prompt, prompt_id, extra_data={}, execute_outputs=[]) -> Any:
     ret = exist_PromptExecutor_execute(self, prompt, prompt_id, extra_data=extra_data, execute_outputs=execute_outputs)
-    print('\n'.join(profiler_outputs))
+    if _LOG_TIME:
+        print('\n'.join(profiler_outputs))
     return ret
 
 execution.recursive_execute = new_recursive_execute

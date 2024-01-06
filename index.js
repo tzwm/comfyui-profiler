@@ -1,6 +1,8 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
+let PRECISION = 2;
+
 function drawText(ctx, text) {
   if (!text) {
     return;
@@ -24,15 +26,6 @@ function drawText(ctx, text) {
   ctx.restore();
 }
 
-function nodeDrawProfiler(node) {
-  const orig = node.onDrawForeground;
-  node.onDrawForeground = function(ctx) {
-    const ret = orig(ctx, arguments);
-    drawText(ctx, node.profilingTime || '');
-    return ret;
-  };
-}
-
 app.registerExtension({
   name: "ComfyUI.Profiler",
   async setup() {
@@ -40,16 +33,19 @@ app.registerExtension({
       const data = event.detail;
       const node = app.graph._nodes.find((n) => n.id.toString() == data.node);
       if (node) {
-        node.profilingTime = `${data.current_time.toFixed(2)}s`;
+        node.profilingTime = `${data.current_time.toFixed(PRECISION)}s`;
       }
     });
-
-    const orig = app.graph.onNodeAdded;
-    app.graph.onNodeAdded = function(node) {
-      const ret = orig(node);
-      nodeDrawProfiler(node);
-      return ret;
-    }
+    app.ui.settings.addSetting({
+      id: 'comfyui.profiler.label_precision',
+      name: "🕚 Profiler Label Precision",
+      type: 'integer',
+      tooltip: 'set timing label precision',
+      defaultValue: PRECISION,
+      onChange(v) {
+        PRECISION = v;
+      },
+    });
   },
   async afterConfigureGraph() {
     const nodes = app.graph._nodes;
@@ -57,7 +53,12 @@ app.registerExtension({
       nodes.forEach(n => n.profilingTime = '');
     });
     nodes.forEach(node => {
-      nodeDrawProfiler(node);
+      const orig = node.onDrawForeground;
+      node.onDrawForeground = function (ctx) {
+        const ret = orig(ctx, arguments);
+        drawText(ctx, node.profilingTime || '');
+        return ret;
+      };
     });
   }
 });
