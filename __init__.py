@@ -1,4 +1,3 @@
-
 import os
 import time
 import asyncio
@@ -12,7 +11,6 @@ import server
 _LOG_TIME = True
 try: _LOG_TIME = os.getenv("COMFYUI_PROFILER_LOG_TIME", "true").lower() in ['true', '1']
 except: pass
-print(_LOG_TIME)
 
 _PRECISION = 4
 try: _PRECISION = int(os.getenv("COMFYUI_PROFILER_PRECISION", _PRECISION))

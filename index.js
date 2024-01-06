@@ -45,7 +45,7 @@ app.registerExtension({
         node.profilingTime = `${data.current_time.toFixed(PRECISION)}s`;
       }
     });
-app.ui.settings.addSetting({
+    app.ui.settings.addSetting({
       id: 'comfyui.profiler.label_precision',
       name: "🕚 Profiler Label Precision",
       type: 'integer',
@@ -55,6 +55,13 @@ app.ui.settings.addSetting({
         PRECISION = v;
       },
     });
+
+    const orig = app.graph.onNodeAdded;
+    app.graph.onNodeAdded = function(node) {
+      const ret = orig(node);
+      nodeDrawProfiler(node);
+      return ret;
+    }
   },
   async afterConfigureGraph() {
     const nodes = app.graph._nodes;
