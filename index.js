@@ -26,6 +26,15 @@ function drawText(ctx, text) {
   ctx.restore();
 }
 
+function nodeDrawProfiler(node) {
+  const orig = node.onDrawForeground;
+  node.onDrawForeground = function(ctx) {
+    const ret = orig(ctx, arguments);
+    drawText(ctx, node.profilingTime || '');
+    return ret;
+  };
+}
+
 app.registerExtension({
   name: "ComfyUI.Profiler",
   async setup() {
@@ -36,7 +45,7 @@ app.registerExtension({
         node.profilingTime = `${data.current_time.toFixed(PRECISION)}s`;
       }
     });
-    app.ui.settings.addSetting({
+app.ui.settings.addSetting({
       id: 'comfyui.profiler.label_precision',
       name: "🕚 Profiler Label Precision",
       type: 'integer',
@@ -53,12 +62,7 @@ app.registerExtension({
       nodes.forEach(n => n.profilingTime = '');
     });
     nodes.forEach(node => {
-      const orig = node.onDrawForeground;
-      node.onDrawForeground = function (ctx) {
-        const ret = orig(ctx, arguments);
-        drawText(ctx, node.profilingTime || '');
-        return ret;
-      };
+      nodeDrawProfiler(node);
     });
   }
 });
