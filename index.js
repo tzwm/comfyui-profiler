@@ -24,6 +24,15 @@ function drawText(ctx, text) {
   ctx.restore();
 }
 
+function nodeDrawProfiler(node) {
+  const orig = node.onDrawForeground;
+  node.onDrawForeground = function(ctx) {
+    const ret = orig(ctx, arguments);
+    drawText(ctx, node.profilingTime || '');
+    return ret;
+  };
+}
+
 app.registerExtension({
   name: "ComfyUI.Profiler",
   async setup() {
@@ -35,6 +44,12 @@ app.registerExtension({
       }
     });
 
+    const orig = app.graph.onNodeAdded;
+    app.graph.onNodeAdded = function(node) {
+      const ret = orig(node);
+      nodeDrawProfiler(node);
+      return ret;
+    }
   },
   async afterConfigureGraph() {
     const nodes = app.graph._nodes;
@@ -42,12 +57,7 @@ app.registerExtension({
       nodes.forEach(n => n.profilingTime = '');
     });
     nodes.forEach(node => {
-      const orig = node.onDrawForeground;
-      node.onDrawForeground = function (ctx) {
-        const ret = orig(ctx, arguments);
-        drawText(ctx, node.profilingTime || '');
-        return ret;
-      };
+      nodeDrawProfiler(node);
     });
   }
 });
