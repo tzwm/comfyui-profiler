@@ -29,7 +29,7 @@ function drawText(ctx, text) {
 function nodeDrawProfiler(node) {
   const orig = node.onDrawForeground;
   node.onDrawForeground = function(ctx) {
-    const ret = orig(ctx, arguments);
+    const ret = orig?.apply(ctx, arguments);
     drawText(ctx, node.profilingTime || '');
     return ret;
   };
@@ -58,7 +58,7 @@ app.registerExtension({
 
     const orig = app.graph.onNodeAdded;
     app.graph.onNodeAdded = function(node) {
-      const ret = orig(node);
+      const ret = orig?.apply(node, arguments);
       nodeDrawProfiler(node);
       return ret;
     }
