@@ -1,0 +1,14 @@
+[project]
+name = "comfyui-profiler"
+description = "Calculate the execution time of all nodes."
+version = "1.0.0"
+license = "LICENSE"
+
+[project.urls]
+Repository = "https://github.com/tzwm/comfyui-profiler"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "comfyui-profiler"
+Icon = ""
