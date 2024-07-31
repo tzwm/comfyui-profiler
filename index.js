@@ -26,54 +26,70 @@ function drawText(ctx, text) {
   ctx.restore();
 }
 
-function nodeDrawProfiler(node) {
-  if (node.onDrawForeground._overwrited) {
+function overwriteOnDrawForeground(node) {
+  if (node.onDrawForeground?._overwrited) {
     return;
   }
   const orig = node.onDrawForeground;
   node.onDrawForeground = function(ctx) {
     const ret = orig?.apply(ctx, arguments);
-    drawText(ctx, node.profilingTime || '');
+    drawText(ctx, node.durationStr || '');
     return ret;
   };
   node.onDrawForeground._overwrited = true
 }
 
+class NodeProfiler {
+  constructor() {
+    this.onExecutingEvent = this.onExecutingEvent.bind(this);
+  }
+
+  reset() {
+    this.curNode = null;
+    this.curNodeStartTimeMs = null;
+    this.globalStartTimeMs = performance.now();
+  }
+
+  onExecutingEvent(e) {
+    const nodeId = e.detail;
+    const newNode = app.graph._nodes.find((n) => n.id.toString() == nodeId);
+    if (this.curNode !== null) {
+      let duration = (performance.now() - this.curNodeStartTimeMs) / 1000;
+
+      this.curNode.durationStr = `${duration.toFixed(PRECISION)}s `;
+      if (duration > 1) {
+        this.curNode.durationStr += "🔥"
+      }
+      if (duration > 5) {
+        this.curNode.durationStr += "🔥"
+      }
+      if (duration > 10) {
+        this.curNode.durationStr += "🔥"
+      }
+      console.log(`Node "${this.curNode.title}"(${this.curNode.type}) took ${this.curNode.durationStr}`);
+    }
+    if (newNode == null) { // This is the ComfyUI way of signaling execution is done
+      console.log(`Prompt executed in ${((performance.now() - this.globalStartTimeMs) / 1000).toFixed(PRECISION)}s`);
+    }
+    this.curNode = newNode;
+    this.curNodeStartTimeMs = performance.now();
+  }
+}
+const profiler = new NodeProfiler();
+
 app.registerExtension({
   name: "ComfyUI.Profiler",
   async setup() {
-    api.addEventListener("profiler", (event) => {
-      const data = event.detail;
-      const node = app.graph._nodes.find((n) => n.id.toString() == data.node);
-      if (node) {
-        node.profilingTime = `${data.current_time.toFixed(PRECISION)}s`;
-      }
-    });
-    app.ui.settings.addSetting({
-      id: 'comfyui.profiler.label_precision',
-      name: "🕚 Profiler Label Precision",
-      type: 'integer',
-      tooltip: 'set timing label precision',
-      defaultValue: PRECISION,
-      onChange(v) {
-        PRECISION = v;
-      },
-    });
-
-    const orig = app.graph.onNodeAdded;
-    app.graph.onNodeAdded = function(node) {
-      const ret = orig?.apply(node, arguments);
-      nodeDrawProfiler(node);
-      return ret;
-    }
   },
   async afterConfigureGraph() {
     const nodes = app.graph._nodes;
     api.addEventListener("execution_start", (_) => {
-      nodes.forEach(n => n.profilingTime = '');
+      profiler.reset();
+      nodes.forEach(n => n.durationStr = '');
     });
     nodes.forEach(node => {
-      nodeDrawProfiler(node);
+      overwriteOnDrawForeground(node);
     });
+    api.addEventListener("executing", profiler.onExecutingEvent);
   }
 });
