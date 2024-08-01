@@ -32,7 +32,7 @@ function nodeDrawProfiler(node) {
   }
   const orig = node.onDrawForeground;
   node.onDrawForeground = function(ctx) {
-    const ret = orig?.apply(ctx, arguments);
+    const ret = orig?.apply(node, arguments);
     drawText(ctx, node.profilingTime || '');
     return ret;
   };
