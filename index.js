@@ -80,6 +80,12 @@ const profiler = new NodeProfiler();
 app.registerExtension({
   name: "ComfyUI.Profiler",
   async setup() {
+    const orig = app.graph.onNodeAdded;
+    app.graph.onNodeAdded = function(node) {
+      const ret = orig?.apply(node, arguments);
+      overwriteOnDrawForeground(node);
+      return ret;
+    }
   },
   async afterConfigureGraph() {
     const nodes = app.graph._nodes;
