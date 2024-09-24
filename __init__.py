@@ -16,7 +16,7 @@ _PRECISION = 4
 try: _PRECISION = int(os.getenv("COMFYUI_PROFILER_PRECISION", _PRECISION))
 except: pass
 
-exist_recursive_execute = execution.recursive_execute
+exist_execute = execution.execute
 exist_PromptExecutor_execute = execution.PromptExecutor.execute
 
 profiler_data = {}
@@ -36,8 +36,8 @@ def get_input_unique_ids(inputs) -> list:
     return ret
 
 
-def get_total_inputs_time(current_item, prompt, calculated_inputs) -> tuple:
-    input_unique_ids = get_input_unique_ids(prompt[current_item]['inputs'])
+def get_total_inputs_time(current_item, dynprompt, calculated_inputs) -> tuple:
+    input_unique_ids = get_input_unique_ids(dynprompt.get_node(current_item)['inputs'])
     total_time = profiler_data['nodes'].get(current_item, 0)
     calculated_nodes = calculated_inputs + [current_item]
     for id in input_unique_ids:
@@ -45,30 +45,31 @@ def get_total_inputs_time(current_item, prompt, calculated_inputs) -> tuple:
             continue
 
         calculated_nodes += [id]
-        t, calculated_inputs = get_total_inputs_time(id, prompt, calculated_nodes)
+        t, calculated_inputs = get_total_inputs_time(id, dynprompt, calculated_nodes)
         total_time += t
 
     return total_time, calculated_nodes
 
 
-def new_recursive_execute(server, prompt, outputs, current_item, extra_data, executed, prompt_id, outputs_ui, object_storage) -> Any:
+#               server, dynprompt, caches, current_item, extra_data, executed, prompt_id, execution_list, pending_subgraph_results
+def new_execute(server, dynprompt, caches, current_item, extra_data, executed, prompt_id, execution_list, pending_subgraph_results) -> Any:
     if not profiler_data.get('prompt_id') or profiler_data.get('prompt_id') != prompt_id:
         profiler_data['prompt_id'] = prompt_id
         profiler_data['nodes'] = {}
         profiler_outputs.clear()
 
-    inputs = prompt[current_item]['inputs']
+    inputs = dynprompt.get_node(current_item)['inputs']
     input_unique_ids = get_input_unique_ids(inputs)
     executed_inputs = list(profiler_data['nodes'].keys())
 
     start_time = time.perf_counter()
-    ret = exist_recursive_execute(server, prompt, outputs, current_item, extra_data, executed, prompt_id, outputs_ui, object_storage)
+    ret = exist_execute(server, dynprompt, caches, current_item, extra_data, executed, prompt_id, execution_list, pending_subgraph_results)
     end_time = time.perf_counter()
 
     profiler_data['nodes'][current_item] = 0
-    this_time_nodes_time, _ = get_total_inputs_time(current_item, prompt, executed_inputs)
+    this_time_nodes_time, _ = get_total_inputs_time(current_item, dynprompt, executed_inputs)
     profiler_data['nodes'][current_item] = end_time - start_time - this_time_nodes_time
-    total_inputs_time, _ = get_total_inputs_time(current_item, prompt, [])
+    total_inputs_time, _ = get_total_inputs_time(current_item, dynprompt, [])
 
     asyncio.run(send_message({
         'node': current_item,
@@ -83,19 +84,20 @@ def new_recursive_execute(server, prompt, outputs, current_item, extra_data, exe
             inputs_str += f'#{id} '
         inputs_str = inputs_str[:-1] + ')'
 
-    profiler_outputs.append(f"[profiler] #{current_item} {prompt[current_item]['class_type']}: \
+    profiler_outputs.append(f"[profiler] #{current_item} {dynprompt.get_node(current_item)['class_type']}: \
 {round(profiler_data['nodes'][current_item], _PRECISION)} seconds, total {round(total_inputs_time, _PRECISION)} seconds{inputs_str}")
 
     return ret
 
 
+#                               self, prompt, prompt_id, extra_data={}, execute_outputs=[]
 def new_prompt_executor_execute(self, prompt, prompt_id, extra_data={}, execute_outputs=[]) -> Any:
     ret = exist_PromptExecutor_execute(self, prompt, prompt_id, extra_data=extra_data, execute_outputs=execute_outputs)
     if _LOG_TIME:
         print('\n'.join(profiler_outputs))
     return ret
 
-execution.recursive_execute = new_recursive_execute
+execution.execute = new_execute
 execution.PromptExecutor.execute = new_prompt_executor_execute
 
 WEB_DIRECTORY = "."
