@@ -26,8 +26,15 @@ function drawText(ctx, text) {
   ctx.restore();
 }
 
-function nodeDrawProfiler(node) {
-  if (node.onDrawForeground?._overwrited) {
+function nodeDrawProfiler(node, attempt = 0) {
+  if (!node.onDrawForeground) {
+    // not ready yet - try again
+    if (attempt < 5) {
+      setTimeout(() => nodeDrawProfiler(node, attempt + 1), attempt * 1000);
+    }
+  }
+
+  if (node.onDrawForeground._overwrited) {
     return;
   }
   const orig = node.onDrawForeground;
