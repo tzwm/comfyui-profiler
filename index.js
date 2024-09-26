@@ -32,6 +32,7 @@ function nodeDrawProfiler(node, attempt = 0) {
     if (attempt < 5) {
       setTimeout(() => nodeDrawProfiler(node, attempt + 1), attempt * 1000);
     }
+    return;
   }
 
   if (node.onDrawForeground._overwrited) {
