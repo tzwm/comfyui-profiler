@@ -26,18 +26,27 @@ function drawText(ctx, text) {
   ctx.restore();
 }
 
-function nodeDrawProfiler(node) {
+function nodeDrawProfiler(node, attempt = 0) {
+  if (!node.onDrawForeground) {
+    // not ready yet - try again
+    if (attempt < 5) {
+      setTimeout(() => nodeDrawProfiler(node, attempt + 1), attempt * 1000);
+    }
+    return;
+  }
+
   if (node.onDrawForeground._overwrited) {
     return;
   }
   const orig = node.onDrawForeground;
-  node.onDrawForeground = function(ctx) {
+  node.onDrawForeground = function (ctx) {
     const ret = orig?.apply(node, arguments);
     drawText(ctx, node.profilingTime || '');
     return ret;
   };
   node.onDrawForeground._overwrited = true
 }
+
 
 app.registerExtension({
   name: "ComfyUI.Profiler",
@@ -61,7 +70,7 @@ app.registerExtension({
     });
 
     const orig = app.graph.onNodeAdded;
-    app.graph.onNodeAdded = function(node) {
+    app.graph.onNodeAdded = function (node) {
       const ret = orig?.apply(node, arguments);
       nodeDrawProfiler(node);
       return ret;
